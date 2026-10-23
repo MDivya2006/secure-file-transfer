@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Secure File Transfer</title>
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      padding: 24px;
+      font-family: Arial, sans-serif;
+      background: #101827;
+      color: #f8fafc;
+    }
+
+    .container {
+      max-width: 720px;
+      margin: 35px auto;
+      padding: 28px;
+      background: #1e293b;
+      border-radius: 16px;
+      box-shadow: 0 10px 30px #0004;
+    }
+
+    h1 { margin-top: 0; color: #67e8f9; }
+    p { color: #cbd5e1; line-height: 1.6; }
+
+    .section {
+      margin-top: 22px;
+      padding: 20px;
+      border: 1px solid #475569;
+      border-radius: 12px;
+    }
+
+    input[type="file"] {
+      display: block;
+      width: 100%;
+      margin: 16px 0;
+      color: #f8fafc;
+    }
+
+    button {
+      padding: 12px 18px;
+      margin: 5px 5px 5px 0;
+      border: 0;
+      border-radius: 8px;
+      background: #0891b2;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    button:disabled { opacity: 0.6; cursor: wait; }
+
+    #result {
+      margin-top: 20px;
+      padding: 14px;
+      border-radius: 8px;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      background: #0f172a;
+    }
+
+    .hint { font-size: 13px; }
+  </style>
+</head>
+<body>
+  <main class="container">
+    <h1>Secure File Transfer</h1>
+    <p>Blockchain-Based Zero Trust Secure File Transfer System</p>
+
+    <section class="section">
+      <h2>Upload File</h2>
+      <p>Select a test file to encrypt and register its hash.</p>
+      <input id="uploadFile" type="file">
+      <button id="uploadButton" onclick="uploadFile()">Upload File</button>
+    </section>
+
+    <section class="section">
+      <h2>Verify File</h2>
+      <p>Select the same file again to compare its SHA-256 hash with the saved original and blockchain record.</p>
+      <input id="verifyFileInput" type="file">
+      <button id="verifyButton" onclick="verifyFile()">Verify File</button>
+    </section>
+
+    <div id="result" role="status" aria-live="polite">
+      Ready. Select a test file to begin.
+    </div>
+
+    <p class="hint">
+      Keep the Flask backend and Ganache running while testing.
+    </p>
+  </main>
+
+  <script>
+    const API_BASE = "http://127.0.0.1:5000";
+
+    function showResult(data) {
+      const result = document.getElementById("result");
+      result.textContent = [
+        data.message || "Request completed.",
+        data.filename ? "Filename: " + data.filename : "",
+        data.sha256 ? "SHA-256: " + data.sha256 : "",
+        data.original_hash ? "Original hash: " + data.original_hash : "",
+        data.current_hash ? "Selected file hash: " + data.current_hash : "",
+        data.blockchain_hash ? "Blockchain hash: " + data.blockchain_hash : "",
+        data.transaction_hash
+          ? "Transaction: " + data.transaction_hash : "",
+        data.error ? "Error: " + data.error : ""
+      ].filter(Boolean).join("\n");
+    }
+
+    async function sendFile(endpoint, file) {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const response = await fetch(API_BASE + endpoint, {
+        method: "POST",
+        body: formData
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || data.error || "Request failed.");
+      }
+
+      return data;
+    }
+
+    async function uploadFile() {
+      const file = document.getElementById("uploadFile").files[0];
+      const button = document.getElementById("uploadButton");
+
+      if (!file) {
+        showResult({ message: "Please choose a file first." });
+        return;
+      }
+
+      button.disabled = true;
+
+      try {
+        showResult({ message: "Uploading and registering hash..." });
+        const data = await sendFile("/upload", file);
+        showResult(data);
+      } catch (error) {
+        showResult({ message: "Upload failed.", error: error.message });
+      } finally {
+        button.disabled = false;
+      }
+    }
+
+    async function verifyFile() {
+      const file = document.getElementById("verifyFileInput").files[0];
+      const button = document.getElementById("verifyButton");
+
+      if (!file) {
+        showResult({ message: "Please choose the file to verify." });
+        return;
+      }
+
+      button.disabled = true;
+
+      try {
+        showResult({ message: "Checking file and blockchain hashes..." });
+        const data = await sendFile("/verify", file);
+        showResult(data);
+      } catch (error) {
+        showResult({
+          message: "Verification request failed.",
+          error: error.message
+        });
+      } finally {
+        button.disabled = false;
+      }
+    }
+  </script>
+</body>
+</html>
